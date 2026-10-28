@@ -28,25 +28,39 @@ const dayLabel = d => d.toLocaleDateString('it-IT', { weekday: 'long', day: 'num
 const WMO = c => c === 0 ? 'Sereno' : c <= 2 ? 'Poco nuvoloso' : c === 3 ? 'Coperto' : c <= 48 ? 'Nebbia'
   : c <= 57 ? 'Pioviggine' : c <= 67 ? 'Pioggia' : c <= 77 ? 'Neve' : c <= 82 ? 'Rovesci' : c <= 86 ? 'Neve' : 'Temporale';
 let wCache = { t: 0, data: null };
+
 async function weather() {
   if (wCache.data && Date.now() - wCache.t < 30 * 60 * 1000) return wCache.data;
   try {
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
-      `&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
-      `&timezone=auto&forecast_days=3`;
-
-    const response = await fetch(u);
-    const data = await response.json();
-
-    if (data.error) {
-        console.error("ERRORE OPEN-METEO:", data);
-    }
-
+    const u = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_KEY}&q=${LAT},${LON}&days=3&lang=it`;
+    const res = await fetch(u);
+    const data = await res.json();
+    
+    if (data.error) console.error("ERRORE WEATHERAPI:", data.error.message);
+    
     wCache = { t: Date.now(), data };
-  } catch (e) {
-    console.error("ERRORE FETCH METEO:", e.message);
+  } catch (e) { 
+    console.error("ERRORE FETCH METEO:", e.message); 
   }
   return wCache.data;
+}
+
+function weatherHtml(w) {
+  if (!w || w.error || !w.forecast) return '<div class="box">Meteo non disponibile</div>';
+  
+  const d = w.forecast.forecastday;
+  const names = ['Oggi', 'Domani', 'Dopodomani'];
+  let rows = '';
+  
+  for (let i = 0; i < 3; i++) {
+    if (!d[i]) continue;
+    rows += `<tr><td>${names[i]}</td><td>${d[i].day.condition.text}</td>` +
+      `<td>${Math.round(d[i].day.mintemp_c)}° / ${Math.round(d[i].day.maxtemp_c)}°</td>` +
+      `<td>${d[i].day.daily_chance_of_rain}% pioggia</td></tr>`;
+  }
+  
+  return `<div class="box"><div class="now">${Math.round(w.current.temp_c)}° ${w.current.condition.text}</div>` +
+    `<table>${rows}</table></div>`;
 }
 function weatherHtml(w) {
   if (!w || w.error || !w.daily || !w.current) return '<div class="box">Meteo non disponibile</div>';
