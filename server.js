@@ -108,11 +108,16 @@ async function dynamic() {
   const today = iso(new Date());
   const [w, ev] = [await weather(), await eventsOn(today, today)];
   
+  // Crea il testo del riassunto in base al numero di eventi
+  let summaryText = 'Nessun impegno per oggi';
+  if (ev.length === 1) summaryText = '1 impegno in programma oggi';
+  if (ev.length > 1) summaryText = `${ev.length} impegni in programma oggi`;
+
   const evList = ev.length 
     ? '<ul>' + ev.map(evHtml).join('') + '</ul>' 
-    : '<ul><li class="ev-row"><div class="time">--:--</div><div class="ev-title">Nessun impegno in programma per oggi.</div></li></ul>';
+    : '<ul><li class="ev-row"><div class="time">--:--</div><div class="ev-title">Giornata libera.</div></li></ul>';
     
-  return weatherHtml(w) + `<div class="ev-box"><h2>Agenda di Oggi</h2>${evList}</div>`;
+  return weatherHtml(w) + `<div class="ev-box"><h2>${summaryText}</h2>${evList}</div>`;
 }
 
 const getClockJs = (h, m, s, day, date, month) => `
