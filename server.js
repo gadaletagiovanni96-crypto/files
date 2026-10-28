@@ -101,7 +101,7 @@ ul { padding: 0; margin: 0; list-style: none; }
 const page = (top, body, js = '') => `<!doctype html><html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Villa Gadaleta</title><style>${CSS}</style></head>
 <body style="padding-top:${top}px">${body}<script>${js}</script></body></html>`;
-const topOf = req => parseInt(req.query.top, 10) || 0;
+const topOf = req => parseInt(req.query.top, 0) || 0;
 
 // ---------- schermate Kindle ----------
 async function dynamic() {
