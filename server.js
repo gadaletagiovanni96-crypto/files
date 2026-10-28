@@ -3,11 +3,12 @@ const { MongoClient, ObjectId } = require('mongodb');
 
 const PORT = process.env.PORT || 3000;
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017';
-const PIN = process.env.ADMIN_PIN;                     // password pagina smartphone
-const TOKEN = process.env.KINDLE_TOKEN;                // parte segreta dell'indirizzo del Kindle
+const PIN = process.env.ADMIN_PIN;                     
+const TOKEN = process.env.KINDLE_TOKEN;                
+const WEATHER_KEY = process.env.WEATHER_KEY; // Aggiungi questa variabile su Render
 if (!PIN || !TOKEN) { console.error('Imposta ADMIN_PIN e KINDLE_TOKEN'); process.exit(1); }
 const BASE = '/k/' + TOKEN;
-const LAT = (process.env.LAT || '41.1171').trim();
+const LAT = (process.env.LAT || '41.1171').trim();             
 const LON = (process.env.LON || '16.8719').trim();
 process.env.TZ = process.env.TZ || 'Europe/Rome';
 
@@ -24,54 +25,31 @@ const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const fromIso = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const dayLabel = d => d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
 
-// ---------- meteo (cache 30 min, lato server) ----------
-const WMO = c => c === 0 ? 'Sereno' : c <= 2 ? 'Poco nuvoloso' : c === 3 ? 'Coperto' : c <= 48 ? 'Nebbia'
-  : c <= 57 ? 'Pioviggine' : c <= 67 ? 'Pioggia' : c <= 77 ? 'Neve' : c <= 82 ? 'Rovesci' : c <= 86 ? 'Neve' : 'Temporale';
+// ---------- meteo (WeatherAPI, cache 30 min) ----------
 let wCache = { t: 0, data: null };
-
 async function weather() {
   if (wCache.data && Date.now() - wCache.t < 30 * 60 * 1000) return wCache.data;
   try {
-    const u = `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_KEY}&q=${LAT},${LON}&days=3&lang=it`;
+    if (!WEATHER_KEY) return null;
+    const u = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_KEY}&q=${LAT},${LON}&days=3&lang=it`;
     const res = await fetch(u);
     const data = await res.json();
-    
     if (data.error) console.error("ERRORE WEATHERAPI:", data.error.message);
-    
     wCache = { t: Date.now(), data };
-  } catch (e) { 
-    console.error("ERRORE FETCH METEO:", e.message); 
-  }
+  } catch (e) { console.error("ERRORE FETCH METEO:", e.message); }
   return wCache.data;
 }
-
 function weatherHtml(w) {
   if (!w || w.error || !w.forecast) return '<div class="box">Meteo non disponibile</div>';
-  
-  const d = w.forecast.forecastday;
-  const names = ['Oggi', 'Domani', 'Dopodomani'];
+  const d = w.forecast.forecastday, names = ['Oggi', 'Domani', 'Dopodomani'];
   let rows = '';
-  
   for (let i = 0; i < 3; i++) {
     if (!d[i]) continue;
     rows += `<tr><td>${names[i]}</td><td>${d[i].day.condition.text}</td>` +
       `<td>${Math.round(d[i].day.mintemp_c)}° / ${Math.round(d[i].day.maxtemp_c)}°</td>` +
       `<td>${d[i].day.daily_chance_of_rain}% pioggia</td></tr>`;
   }
-  
   return `<div class="box"><div class="now">${Math.round(w.current.temp_c)}° ${w.current.condition.text}</div>` +
-    `<table>${rows}</table></div>`;
-}
-function weatherHtml(w) {
-  if (!w || w.error || !w.daily || !w.current) return '<div class="box">Meteo non disponibile</div>';
-  const d = w.daily, names = ['Oggi', 'Domani', 'Dopodomani'];
-  let rows = '';
-  for (let i = 0; i < 3; i++) {
-    rows += `<tr><td>${names[i]}</td><td>${WMO(d.weather_code[i])}</td>` +
-      `<td>${Math.round(d.temperature_2m_min[i])}° / ${Math.round(d.temperature_2m_max[i])}°</td>` +
-      `<td>${d.precipitation_probability_max[i]}% pioggia</td></tr>`;
-  }
-  return `<div class="box"><div class="now">${Math.round(w.current.temperature_2m)}° ${WMO(w.current.weather_code)}</div>` +
     `<table>${rows}</table></div>`;
 }
 
@@ -79,7 +57,7 @@ function weatherHtml(w) {
 const evHtml = e => `<li><b>${e.time ? esc(e.time) : 'Tutto il giorno'}</b> &ndash; ${esc(e.title)}</li>`;
 const eventsOn = (a, b) => col.find({ date: { $gte: a, $lte: b } }).sort({ date: 1, time: 1 }).toArray();
 
-// ---------- layout (solo bianco/nero, niente flex, niente ES6 lato Kindle) ----------
+// ---------- layout ----------
 const CSS = `
 *{box-sizing:border-box}
 body{margin:0;background:#fff;color:#000;font-family:Georgia,serif;padding:0 16px 20px}
@@ -97,7 +75,7 @@ ul{font-size:28px;padding-left:22px;margin:6px 0}li{margin:6px 0}
 const page = (top, body, js = '') => `<!doctype html><html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Casa</title><style>${CSS}</style></head>
 <body style="padding-top:${top}px">${body}<script>${js}</script></body></html>`;
-const topOf = req => parseInt(req.query.top, 10) || 70; // spazio per la barra del browser Kindle (?top=100 per cambiarlo)
+const topOf = req => parseInt(req.query.top, 10) || 70;
 
 // ---------- schermate Kindle ----------
 async function dynamic() {
@@ -107,25 +85,35 @@ async function dynamic() {
     (ev.length ? '<ul>' + ev.map(evHtml).join('') + '</ul>' : '<ul><li>Nessun impegno</li></ul>');
 }
 
-const CLOCK_JS = `
+// Bypassiamo il JS del Kindle: il server calcola l'ora esatta per l'Italia e la inietta
+const getClockJs = (h, m, s, day, date, month) => `
 var G=['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
 var M=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 function p(n){return n<10?'0'+n:''+n}
+var h=${h}, m=${m}, s=${s}, day=${day}, date=${date}, month=${month};
 var last='';
-function tick(){var d=new Date();var t=p(d.getHours())+':'+p(d.getMinutes());
- if(t!==last){last=t;document.getElementById('clock').innerHTML=t;
- document.getElementById('date').innerHTML=G[d.getDay()]+' '+d.getDate()+' '+M[d.getMonth()];}}
+function tick(){
+  s+=5; if(s>=60){s=0;m++;} if(m>=60){m=0;h++;}
+  if(h>=24){location.reload();} // Ricarica tutta la pagina a mezzanotte esatta
+  var t=p(h)+':'+p(m);
+  if(t!==last){
+    last=t; document.getElementById('clock').innerHTML=t;
+    document.getElementById('date').innerHTML=G[day]+' '+date+' '+M[month];
+  }
+}
 tick();setInterval(tick,5000);
 function refresh(){var x=new XMLHttpRequest();
- x.onreadystatechange=function(){if(x.readyState==4&&x.status==200){document.getElementById('dyn').innerHTML=x.responseText;}};
- x.open('GET','${BASE}/partial?'+(new Date().getTime()));x.send();}
+  x.onreadystatechange=function(){if(x.readyState==4&&x.status==200){document.getElementById('dyn').innerHTML=x.responseText;}};
+  x.open('GET','${BASE}/partial?'+(new Date().getTime()));x.send();}
 setInterval(refresh,600000);`;
 
 app.get(BASE + '/', async (req, res) => {
   const t = topOf(req);
+  const d = new Date(); // Questo Date usa process.env.TZ di Render
+  const js = getClockJs(d.getHours(), d.getMinutes(), d.getSeconds(), d.getDay(), d.getDate(), d.getMonth());
   res.send(page(t, `<div class="clock" id="clock">--:--</div><div class="date" id="date"></div>
 <div id="dyn">${await dynamic()}</div>
-<a class="btn half" href="${BASE}/agenda?top=${t}">AGENDA</a><a class="btn half l" href="${BASE}/?top=${t}">AGGIORNA</a><div class="cl"></div>`, CLOCK_JS));
+<a class="btn half" href="${BASE}/agenda?top=${t}">AGENDA</a><a class="btn half l" href="${BASE}/?top=${t}">AGGIORNA</a><div class="cl"></div>`, js));
 });
 app.get(BASE + '/partial', async (req, res) => res.send(await dynamic()));
 
@@ -141,11 +129,11 @@ app.get(BASE + '/agenda', async (req, res) => {
   res.send(page(t, html + `<a class="btn" href="${BASE}/?top=${t}">&laquo; HOME</a>`));
 });
 
-// ---------- pagina smartphone (con PIN) ----------
+// ---------- pagina smartphone ----------
 const fails = {};
 function auth(req, res, next) {
   const f = fails[req.ip] || { n: 0, t: 0 };
-  if (f.n >= 5 && Date.now() - f.t < 15 * 60 * 1000) return res.sendStatus(429); // blocco 15 min dopo 5 errori
+  if (f.n >= 5 && Date.now() - f.t < 15 * 60 * 1000) return res.sendStatus(429);
   const pw = Buffer.from((req.headers.authorization || '').split(' ')[1] || '', 'base64').toString().split(':')[1];
   if (pw === PIN) { delete fails[req.ip]; return next(); }
   if (pw) fails[req.ip] = { n: f.n + 1, t: Date.now() };
