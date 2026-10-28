@@ -7,8 +7,8 @@ const PIN = process.env.ADMIN_PIN;                     // password pagina smartp
 const TOKEN = process.env.KINDLE_TOKEN;                // parte segreta dell'indirizzo del Kindle
 if (!PIN || !TOKEN) { console.error('Imposta ADMIN_PIN e KINDLE_TOKEN'); process.exit(1); }
 const BASE = '/k/' + TOKEN;
-const LAT = process.env.LAT || '41.1171';              // coordinate per il meteo
-const LON = process.env.LON || '16.8719';
+const LAT = (process.env.LAT || '41.1171').trim();
+const LON = (process.env.LON || '16.8719').trim();
 process.env.TZ = process.env.TZ || 'Europe/Rome';
 
 const app = express();
@@ -34,12 +34,22 @@ async function weather() {
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
       `&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
       `&timezone=auto&forecast_days=3`;
-    wCache = { t: Date.now(), data: await (await fetch(u)).json() };
-  } catch (e) { /* tiene la cache vecchia */ }
+
+    const response = await fetch(u);
+    const data = await response.json();
+
+    if (data.error) {
+        console.error("ERRORE OPEN-METEO:", data);
+    }
+
+    wCache = { t: Date.now(), data };
+  } catch (e) {
+    console.error("ERRORE FETCH METEO:", e.message);
+  }
   return wCache.data;
 }
 function weatherHtml(w) {
-  if (!w) return '<div class="box">Meteo non disponibile</div>';
+  if (!w || w.error || !w.daily || !w.current) return '<div class="box">Meteo non disponibile</div>';
   const d = w.daily, names = ['Oggi', 'Domani', 'Dopodomani'];
   let rows = '';
   for (let i = 0; i < 3; i++) {
