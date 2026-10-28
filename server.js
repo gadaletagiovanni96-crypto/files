@@ -3,12 +3,12 @@ const { MongoClient, ObjectId } = require('mongodb');
 
 const PORT = process.env.PORT || 3000;
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017';
-const PIN = process.env.ADMIN_PIN;                     
-const TOKEN = process.env.KINDLE_TOKEN;                
-const WEATHER_KEY = process.env.WEATHER_KEY; // Aggiungi questa variabile su Render
+const PIN = process.env.ADMIN_PIN;
+const TOKEN = process.env.KINDLE_TOKEN;
+const WEATHER_KEY = process.env.WEATHER_KEY;
 if (!PIN || !TOKEN) { console.error('Imposta ADMIN_PIN e KINDLE_TOKEN'); process.exit(1); }
 const BASE = '/k/' + TOKEN;
-const LAT = (process.env.LAT || '41.1171').trim();             
+const LAT = (process.env.LAT || '41.1171').trim();
 const LON = (process.env.LON || '16.8719').trim();
 process.env.TZ = process.env.TZ || 'Europe/Rome';
 
@@ -39,41 +39,67 @@ async function weather() {
   } catch (e) { console.error("ERRORE FETCH METEO:", e.message); }
   return wCache.data;
 }
+
 function weatherHtml(w) {
   if (!w || w.error || !w.forecast) return '<div class="box">Meteo non disponibile</div>';
   const d = w.forecast.forecastday, names = ['Oggi', 'Domani', 'Dopodomani'];
-  let rows = '';
+  let cols = '';
   for (let i = 0; i < 3; i++) {
     if (!d[i]) continue;
-    rows += `<tr><td>${names[i]}</td><td>${d[i].day.condition.text}</td>` +
-      `<td>${Math.round(d[i].day.mintemp_c)}° / ${Math.round(d[i].day.maxtemp_c)}°</td>` +
-      `<td>${d[i].day.daily_chance_of_rain}% pioggia</td></tr>`;
+    // Disposizione orizzontale compatta per salvare spazio in altezza
+    cols += `<td style="width:33.3%; text-align:center; padding:10px 4px; border-right:${i<2?'2px solid #000':'none'}">
+      <div style="font-size:22px; font-weight:bold; margin-bottom:6px;">${names[i]}</div>
+      <div style="font-size:20px; text-transform:capitalize; margin-bottom:6px; height:50px; overflow:hidden;">${d[i].day.condition.text}</div>
+      <div style="font-size:24px; font-weight:bold;">${Math.round(d[i].day.mintemp_c)}&deg; / ${Math.round(d[i].day.maxtemp_c)}&deg;</div>
+    </td>`;
   }
-  return `<div class="box"><div class="now">${Math.round(w.current.temp_c)}° ${w.current.condition.text}</div>` +
-    `<table>${rows}</table></div>`;
+  return `<div class="box">
+    <div class="now">${Math.round(w.current.temp_c)}&deg; &ndash; ${w.current.condition.text}</div>
+    <table style="width:100%; border-top:2px solid #000; margin-top:12px; border-collapse:collapse;">
+      <tr>${cols}</tr>
+    </table>
+  </div>`;
 }
 
-// ---------- dati ----------
-const evHtml = e => `<li><b>${e.time ? esc(e.time) : 'Tutto il giorno'}</b> &ndash; ${esc(e.title)}</li>`;
+// ---------- layout e HTML ----------
+const evHtml = e => `<li class="ev-row"><div class="time">${e.time ? esc(e.time) : 'Tutto il g.'}</div><div class="ev-title">${esc(e.title)}</div></li>`;
 const eventsOn = (a, b) => col.find({ date: { $gte: a, $lte: b } }).sort({ date: 1, time: 1 }).toArray();
 
-// ---------- layout ----------
 const CSS = `
-*{box-sizing:border-box}
-body{margin:0;background:#fff;color:#000;font-family:Georgia,serif;padding:0 16px 20px}
-.clock{font-size:130px;font-weight:bold;text-align:center;line-height:1.1}
-.date{font-size:34px;text-align:center;margin-bottom:14px;text-transform:capitalize}
-.box{border:3px solid #000;padding:10px;margin:10px 0}
-.now{font-size:38px;font-weight:bold;margin-bottom:6px}
-table{width:100%;font-size:24px;border-collapse:collapse}td{padding:4px 6px;border-top:1px solid #000}
-h2{font-size:32px;margin:14px 0 4px;border-bottom:3px solid #000}
-ul{font-size:28px;padding-left:22px;margin:6px 0}li{margin:6px 0}
-.btn{display:block;width:100%;border:3px solid #000;padding:18px;margin:10px 0;font-size:34px;font-weight:bold;
-  text-align:center;color:#000;text-decoration:none;background:#fff}
-.half{display:block;width:48%;float:left;margin-right:4%}.half.l{margin-right:0}
-.cl{clear:both}`;
+* { box-sizing: border-box; }
+/* body: blocco totale dello scroll sulla dashboard */
+body { margin: 0; background: #fff; color: #000; font-family: "Georgia", serif; overflow: hidden; }
+a { color: #000; text-decoration: none; }
+
+/* Navbar Superiore */
+.nav { border-bottom: 4px solid #000; padding: 12px 16px; overflow: hidden; margin-bottom: 20px; }
+.nav-btn { display: block; float: left; width: 22%; border: 3px solid #000; text-align: center; font-size: 22px; font-weight: bold; padding: 10px 0; background: #fff; color: #000; text-transform: uppercase; border-radius: 8px; }
+.nav-btn.r { float: right; }
+.nav-title { display: block; float: left; width: 56%; text-align: center; font-size: 38px; font-style: italic; font-weight: bold; line-height: 52px; }
+
+.content { padding: 0 16px; }
+
+/* Orologio e Data */
+.clock { font-size: 160px; font-weight: bold; text-align: center; line-height: 1; margin: 10px 0 5px; letter-spacing: -4px; }
+.date { font-size: 34px; text-align: center; text-transform: capitalize; margin-bottom: 25px; font-style: italic; }
+
+/* Box Meteo */
+.box { border: 4px solid #000; border-radius: 12px; padding: 16px; margin-bottom: 25px; }
+.now { font-size: 42px; font-weight: bold; text-align: center; }
+
+/* Eventi - L'altezza massima previene lo sbordamento dallo schermo */
+.ev-box { max-height: 380px; overflow: hidden; }
+h2 { font-size: 32px; margin: 0 0 16px; border-bottom: 3px solid #000; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 2px; }
+ul { padding: 0; margin: 0; list-style: none; }
+
+/* Riga evento super definita */
+.ev-row { overflow: hidden; margin-bottom: 14px; font-size: 28px; line-height: 1.2; }
+.time { float: left; width: 120px; font-weight: bold; border-right: 3px solid #000; padding-right: 12px; margin-right: 12px; text-align: right; }
+.ev-title { overflow: hidden; } /* Riempie automaticamente lo spazio restante senza rompere il layout */
+`;
+
 const page = (top, body, js = '') => `<!doctype html><html lang="it"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Casa</title><style>${CSS}</style></head>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Villa Gadaleta</title><style>${CSS}</style></head>
 <body style="padding-top:${top}px">${body}<script>${js}</script></body></html>`;
 const topOf = req => parseInt(req.query.top, 10) || 70;
 
@@ -81,11 +107,14 @@ const topOf = req => parseInt(req.query.top, 10) || 70;
 async function dynamic() {
   const today = iso(new Date());
   const [w, ev] = [await weather(), await eventsOn(today, today)];
-  return weatherHtml(w) + '<h2>Oggi</h2>' +
-    (ev.length ? '<ul>' + ev.map(evHtml).join('') + '</ul>' : '<ul><li>Nessun impegno</li></ul>');
+  
+  const evList = ev.length 
+    ? '<ul>' + ev.map(evHtml).join('') + '</ul>' 
+    : '<ul><li class="ev-row"><div class="time">--:--</div><div class="ev-title">Nessun impegno in programma per oggi.</div></li></ul>';
+    
+  return weatherHtml(w) + `<div class="ev-box"><h2>Agenda di Oggi</h2>${evList}</div>`;
 }
 
-// Bypassiamo il JS del Kindle: il server calcola l'ora esatta per l'Italia e la inietta
 const getClockJs = (h, m, s, day, date, month) => `
 var G=['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
 var M=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
@@ -94,7 +123,7 @@ var h=${h}, m=${m}, s=${s}, day=${day}, date=${date}, month=${month};
 var last='';
 function tick(){
   s+=5; if(s>=60){s=0;m++;} if(m>=60){m=0;h++;}
-  if(h>=24){location.reload();} // Ricarica tutta la pagina a mezzanotte esatta
+  if(h>=24){location.reload();}
   var t=p(h)+':'+p(m);
   if(t!==last){
     last=t; document.getElementById('clock').innerHTML=t;
@@ -107,29 +136,54 @@ function refresh(){var x=new XMLHttpRequest();
   x.open('GET','${BASE}/partial?'+(new Date().getTime()));x.send();}
 setInterval(refresh,600000);`;
 
+// HOMEPAGE: Dashboard Fissa
 app.get(BASE + '/', async (req, res) => {
   const t = topOf(req);
-  const d = new Date(); // Questo Date usa process.env.TZ di Render
+  const d = new Date();
   const js = getClockJs(d.getHours(), d.getMinutes(), d.getSeconds(), d.getDay(), d.getDate(), d.getMonth());
-  res.send(page(t, `<div class="clock" id="clock">--:--</div><div class="date" id="date"></div>
-<div id="dyn">${await dynamic()}</div>
-<a class="btn half" href="${BASE}/agenda?top=${t}">AGENDA</a><a class="btn half l" href="${BASE}/?top=${t}">AGGIORNA</a><div class="cl"></div>`, js));
+  
+  const nav = `
+  <div class="nav">
+    <a class="nav-btn" href="${BASE}/agenda?top=${t}">Agenda</a>
+    <div class="nav-title">Villa Gadaleta</div>
+    <a class="nav-btn r" href="${BASE}/?top=${t}">Aggiorna</a>
+  </div>`;
+  
+  res.send(page(t, `
+  ${nav}
+  <div class="content">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+    <div id="dyn">${await dynamic()}</div>
+  </div>`, js));
 });
+
 app.get(BASE + '/partial', async (req, res) => res.send(await dynamic()));
 
+// AGENDA: Unica pagina dove lo scroll è concesso (sovrascrive overflow: hidden del body)
 app.get(BASE + '/agenda', async (req, res) => {
   const t = topOf(req), start = new Date();
   const ev = await eventsOn(iso(start), iso(addDays(start, 6)));
-  let html = '<h2 style="margin-top:0">Prossimi 7 giorni</h2>';
+  
+  const nav = `
+  <div class="nav">
+    <a class="nav-btn" href="${BASE}/?top=${t}">&laquo; Home</a>
+    <div class="nav-title">Agenda 7 Giorni</div>
+    <div class="nav-btn r" style="border:none;background:transparent;color:transparent;">-</div>
+  </div>`;
+
+  let html = '<div class="content" style="padding-bottom:100px;">';
   for (let i = 0; i < 7; i++) {
     const d = addDays(start, i), list = ev.filter(e => e.date === iso(d));
-    html += `<h2 style="font-size:26px;text-transform:capitalize">${dayLabel(d)}</h2>` +
-      (list.length ? '<ul>' + list.map(evHtml).join('') + '</ul>' : '<ul><li>&ndash;</li></ul>');
+    html += `<h2 style="font-size:28px; margin-top:20px;">${dayLabel(d)}</h2>` +
+      (list.length ? '<ul>' + list.map(evHtml).join('') + '</ul>' : '<ul><li class="ev-row"><div class="time">&ndash;</div><div class="ev-title">Nessun impegno</div></li></ul>');
   }
-  res.send(page(t, html + `<a class="btn" href="${BASE}/?top=${t}">&laquo; HOME</a>`));
+  html += '</div>';
+  
+  res.send(page(t, nav + html).replace('overflow: hidden;', 'overflow: auto;'));
 });
 
-// ---------- pagina smartphone ----------
+// ---------- pagina smartphone (admin) ----------
 const fails = {};
 function auth(req, res, next) {
   const f = fails[req.ip] || { n: 0, t: 0 };
