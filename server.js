@@ -46,69 +46,71 @@ function weatherHtml(w) {
   let cols = '';
   for (let i = 0; i < 3; i++) {
     if (!d[i]) continue;
-    // Disposizione orizzontale compatta per salvare spazio in altezza
-    cols += `<td style="width:33.3%; text-align:center; padding:10px 4px; border-right:${i<2?'2px solid #000':'none'}">
-      <div style="font-size:22px; font-weight:bold; margin-bottom:6px;">${names[i]}</div>
-      <div style="font-size:20px; text-transform:capitalize; margin-bottom:6px; height:50px; overflow:hidden;">${d[i].day.condition.text}</div>
-      <div style="font-size:24px; font-weight:bold;">${Math.round(d[i].day.mintemp_c)}&deg; / ${Math.round(d[i].day.maxtemp_c)}&deg;</div>
+    cols += `<td class="meteo-col" style="border-right:${i<2?'2px solid #000':'none'}">
+      <div class="meteo-day">${names[i]}</div>
+      <div class="meteo-cond">${d[i].day.condition.text}</div>
+      <div class="meteo-temp">${Math.round(d[i].day.mintemp_c)}&deg; / ${Math.round(d[i].day.maxtemp_c)}&deg;</div>
     </td>`;
   }
   return `<div class="box">
     <div class="now">${Math.round(w.current.temp_c)}&deg; &ndash; ${w.current.condition.text}</div>
-    <table style="width:100%; border-top:2px solid #000; margin-top:12px; border-collapse:collapse;">
-      <tr>${cols}</tr>
-    </table>
+    <table class="meteo-table"><tr>${cols}</tr></table>
   </div>`;
 }
 
-// ---------- layout e HTML ----------
+// ---------- dati ----------
 const evHtml = e => `<li class="ev-row"><div class="time">${e.time ? esc(e.time) : 'Tutto il g.'}</div><div class="ev-title">${esc(e.title)}</div></li>`;
 const eventsOn = (a, b) => col.find({ date: { $gte: a, $lte: b } }).sort({ date: 1, time: 1 }).toArray();
 
+// ---------- layout e HTML ----------
 const CSS = `
 * { box-sizing: border-box; }
-/* body: blocco totale dello scroll sulla dashboard */
+/* body bloccato */
 body { margin: 0; background: #fff; color: #000; font-family: "Georgia", serif; overflow: hidden; }
 a { color: #000; text-decoration: none; }
 
-/* Navbar Superiore */
-.nav { border-bottom: 4px solid #000; padding: 12px 16px; overflow: hidden; margin-bottom: 20px; }
-.nav-btn { display: block; float: left; width: 22%; border: 3px solid #000; text-align: center; font-size: 22px; font-weight: bold; padding: 10px 0; background: #fff; color: #000; text-transform: uppercase; border-radius: 8px; }
+/* Navbar Superiore - Margini ridotti */
+.nav { border-bottom: 3px solid #000; padding: 8px 12px; overflow: hidden; margin-bottom: 12px; }
+.nav-btn { display: block; float: left; width: 22%; border: 3px solid #000; text-align: center; font-size: 20px; font-weight: bold; padding: 6px 0; background: #fff; color: #000; text-transform: uppercase; border-radius: 8px; }
 .nav-btn.r { float: right; }
-.nav-title { display: block; float: left; width: 56%; text-align: center; font-size: 38px; font-style: italic; font-weight: bold; line-height: 52px; }
+.nav-title { display: block; float: left; width: 56%; text-align: center; font-size: 30px; font-style: italic; font-weight: bold; line-height: 42px; }
 
-.content { padding: 0 16px; }
+.content { padding: 0 12px; }
 
-/* Orologio e Data */
-.clock { font-size: 160px; font-weight: bold; text-align: center; line-height: 1; margin: 10px 0 5px; letter-spacing: -4px; }
-.date { font-size: 34px; text-align: center; text-transform: capitalize; margin-bottom: 25px; font-style: italic; }
+/* Orologio e Data compattati */
+.clock { font-size: 110px; font-weight: bold; text-align: center; line-height: 1; margin: 0 0 5px; letter-spacing: -2px; }
+.date { font-size: 26px; text-align: center; text-transform: capitalize; margin-bottom: 15px; font-style: italic; }
 
-/* Box Meteo */
-.box { border: 4px solid #000; border-radius: 12px; padding: 16px; margin-bottom: 25px; }
-.now { font-size: 42px; font-weight: bold; text-align: center; }
+/* Box Meteo ridotto */
+.box { border: 3px solid #000; border-radius: 8px; padding: 10px; margin-bottom: 15px; }
+.now { font-size: 32px; font-weight: bold; text-align: center; }
+.meteo-table { width: 100%; border-top: 2px solid #000; margin-top: 10px; border-collapse: collapse; }
+.meteo-col { width: 33.3%; text-align: center; padding: 6px 2px; }
+.meteo-day { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+.meteo-cond { font-size: 16px; text-transform: capitalize; margin-bottom: 4px; height: 40px; overflow: hidden; line-height: 1.1; }
+.meteo-temp { font-size: 20px; font-weight: bold; }
 
-/* Eventi - L'altezza massima previene lo sbordamento dallo schermo */
-.ev-box { max-height: 380px; overflow: hidden; }
-h2 { font-size: 32px; margin: 0 0 16px; border-bottom: 3px solid #000; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 2px; }
+/* Eventi tirati su */
+.ev-box { max-height: 280px; overflow: hidden; }
+h2 { font-size: 24px; margin: 0 0 8px; border-bottom: 2px solid #000; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
 ul { padding: 0; margin: 0; list-style: none; }
 
-/* Riga evento super definita */
-.ev-row { overflow: hidden; margin-bottom: 14px; font-size: 28px; line-height: 1.2; }
-.time { float: left; width: 120px; font-weight: bold; border-right: 3px solid #000; padding-right: 12px; margin-right: 12px; text-align: right; }
-.ev-title { overflow: hidden; } /* Riempie automaticamente lo spazio restante senza rompere il layout */
+.ev-row { overflow: hidden; margin-bottom: 8px; font-size: 22px; line-height: 1.2; }
+.time { float: left; width: 95px; font-weight: bold; border-right: 3px solid #000; padding-right: 8px; margin-right: 8px; text-align: right; }
+.ev-title { overflow: hidden; }
 `;
 
 const page = (top, body, js = '') => `<!doctype html><html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Villa Gadaleta</title><style>${CSS}</style></head>
 <body style="padding-top:${top}px">${body}<script>${js}</script></body></html>`;
-const topOf = req => parseInt(req.query.top, 0) || 0;
+// Margine superiore fissato a 10px per guadagnare spazio
+const topOf = req => parseInt(req.query.top, 10) || 10;
 
 // ---------- schermate Kindle ----------
 async function dynamic() {
   const today = iso(new Date());
   const [w, ev] = [await weather(), await eventsOn(today, today)];
   
-  // Crea il testo del riassunto in base al numero di eventi
   let summaryText = 'Nessun impegno per oggi';
   if (ev.length === 1) summaryText = '1 impegno in programma oggi';
   if (ev.length > 1) summaryText = `${ev.length} impegni in programma oggi`;
@@ -141,7 +143,6 @@ function refresh(){var x=new XMLHttpRequest();
   x.open('GET','${BASE}/partial?'+(new Date().getTime()));x.send();}
 setInterval(refresh,600000);`;
 
-// HOMEPAGE: Dashboard Fissa
 app.get(BASE + '/', async (req, res) => {
   const t = topOf(req);
   const d = new Date();
@@ -165,7 +166,6 @@ app.get(BASE + '/', async (req, res) => {
 
 app.get(BASE + '/partial', async (req, res) => res.send(await dynamic()));
 
-// AGENDA: Unica pagina dove lo scroll è concesso (sovrascrive overflow: hidden del body)
 app.get(BASE + '/agenda', async (req, res) => {
   const t = topOf(req), start = new Date();
   const ev = await eventsOn(iso(start), iso(addDays(start, 6)));
@@ -188,7 +188,7 @@ app.get(BASE + '/agenda', async (req, res) => {
   res.send(page(t, nav + html).replace('overflow: hidden;', 'overflow: auto;'));
 });
 
-// ---------- pagina smartphone (admin) ----------
+// ---------- pagina smartphone ----------
 const fails = {};
 function auth(req, res, next) {
   const f = fails[req.ip] || { n: 0, t: 0 };
